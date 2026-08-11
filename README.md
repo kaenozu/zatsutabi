@@ -33,3 +33,16 @@ python tool/extract_osm_pois.py tool/japan-latest.osm.pbf assets/poi_osm.sqlite
 ## attribution
 
 画面内に `© OpenStreetMap contributors` を表示しています。実データ更新時はOSMのライセンスとデータ利用条件も再確認してください。
+
+## Android Release署名
+
+Release APK/App BundleはDebugキーへフォールバックしません。署名環境で次の環境変数をSecretとして設定してからビルドしてください。
+
+```text
+RELEASE_STORE_FILE
+RELEASE_STORE_PASSWORD
+RELEASE_KEY_ALIAS
+RELEASE_KEY_PASSWORD
+```
+
+未設定の環境ではReleaseビルドが明示的に失敗します。値やキーストアはリポジトリへ保存しないでください。
