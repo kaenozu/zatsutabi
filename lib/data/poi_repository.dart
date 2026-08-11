@@ -1,11 +1,14 @@
+import 'dart:io';
 import 'dart:math';
+
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as path;
+import 'package:sqflite/sqflite.dart';
 
 import '../models/poi.dart';
 
 class PoiRepository {
-  // The generated SQLite asset is the production-shaped source. These seed rows
-  // keep the first build runnable before the large Japan extract is installed.
-  static const _pois = <Poi>[
+  static const _fallback = <Poi>[
     Poi(
       id: 'tokyo-park',
       name: '井の頭恩賜公園',
@@ -64,16 +67,58 @@ class PoiRepository {
     ),
   ];
 
+  Database? _database;
+
+  Future<Database?> _openDatabase() async {
+    if (_database != null) return _database;
+    try {
+      final databasesPath = await getDatabasesPath();
+      final databasePath = path.join(databasesPath, 'poi_osm.sqlite');
+      if (!await File(databasePath).exists()) {
+        final bytes = (await rootBundle.load(
+          'assets/poi_osm.sqlite',
+        )).buffer.asUint8List();
+        await File(databasePath).writeAsBytes(bytes, flush: true);
+      }
+      _database = await openDatabase(databasePath, readOnly: true);
+      return _database;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Poi>> nearby({
     required double latitude,
     required double longitude,
     required double radiusKm,
     bool indoorOnly = false,
   }) async {
-    return _pois.where((poi) => !indoorOnly || poi.indoor).where((poi) {
-      return _distanceKm(latitude, longitude, poi.latitude, poi.longitude) <=
-          radiusKm;
-    }).toList();
+    final database = await _openDatabase();
+    final rows = database == null
+        ? const <Map<String, Object?>>[]
+        : await database.query('poi');
+    final source = rows.isEmpty
+        ? _fallback
+        : rows
+              .map(
+                (row) => Poi(
+                  id: row['id']! as String,
+                  name: row['name']! as String,
+                  category: row['category']! as String,
+                  latitude: row['latitude']! as double,
+                  longitude: row['longitude']! as double,
+                  indoor: row['indoor'] == 1,
+                ),
+              )
+              .toList();
+    return source
+        .where((poi) => !indoorOnly || poi.indoor)
+        .where(
+          (poi) =>
+              _distanceKm(latitude, longitude, poi.latitude, poi.longitude) <=
+              radiusKm,
+        )
+        .toList();
   }
 
   double _distanceKm(double lat1, double lon1, double lat2, double lon2) {
