@@ -52,7 +52,7 @@ android {
     }
 }
 
-tasks.matching { it.name == "assembleRelease" }.configureEach {
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
     doFirst {
         check(releaseSigningConfigured) {
             "Release signing is not configured. Set RELEASE_STORE_FILE, " +
