@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 
 import 'package:zatsutabi/data/history_store.dart';
 import 'package:zatsutabi/data/poi_repository.dart';
+import 'package:zatsutabi/models/poi.dart';
 import 'package:zatsutabi/services/location_service.dart';
 import 'package:zatsutabi/services/maps_launcher.dart';
 import 'package:zatsutabi/services/recommendation_engine.dart';
@@ -35,6 +36,16 @@ class FakeHistoryStore extends HistoryStore {
 class FakeMapsLauncher extends MapsLauncher {}
 
 void main() {
+  test('builds a Google Maps URL without an API key', () {
+    final uri = MapsLauncher().destinationUri(PoiRepositoryTestPoi.value);
+
+    expect(uri.scheme, 'https');
+    expect(uri.host, 'www.google.com');
+    expect(uri.path, '/maps/dir/');
+    expect(uri.queryParameters['api'], '1');
+    expect(uri.queryParameters['destination'], '35.7,139.7');
+  });
+
   test('returns one nearby suggestion and records it', () async {
     final history = FakeHistoryStore();
     final engine = RecommendationEngine(
@@ -64,4 +75,15 @@ void main() {
 
     expect(result.indoor, isTrue);
   });
+}
+
+class PoiRepositoryTestPoi {
+  static const value = Poi(
+    id: 'test',
+    name: 'Test',
+    category: 'Test',
+    latitude: 35.7,
+    longitude: 139.7,
+    indoor: false,
+  );
 }

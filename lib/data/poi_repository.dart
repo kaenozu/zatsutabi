@@ -94,9 +94,20 @@ class PoiRepository {
     bool indoorOnly = false,
   }) async {
     final database = await _openDatabase();
+    final latitudeDelta = radiusKm / 111.0;
+    final longitudeDelta = radiusKm / (111.0 * cos(_radians(latitude)));
     final rows = database == null
         ? const <Map<String, Object?>>[]
-        : await database.query('poi');
+        : await database.query(
+            'poi',
+            where: 'latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?',
+            whereArgs: [
+              latitude - latitudeDelta,
+              latitude + latitudeDelta,
+              longitude - longitudeDelta,
+              longitude + longitudeDelta,
+            ],
+          );
     final source = rows.isEmpty
         ? _fallback
         : rows
