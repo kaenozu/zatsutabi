@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:zatsutabi/data/history_store.dart';
 import 'package:zatsutabi/data/poi_repository.dart';
@@ -92,6 +93,26 @@ void main() {
 
     expect(osaka, isNotEmpty);
     expect(sapporo, isNotEmpty);
+  });
+
+  test('persists readable history entries', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = HistoryStore();
+    const poi = Poi(
+      id: 'history-test',
+      name: '履歴テスト',
+      category: '博物館',
+      latitude: 35.7,
+      longitude: 139.7,
+      indoor: true,
+    );
+
+    await store.record(poi);
+    final entries = await store.entries();
+
+    expect(entries, hasLength(1));
+    expect(entries.single['name'], '履歴テスト');
+    expect(entries.single['category'], '博物館');
   });
 }
 
