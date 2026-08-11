@@ -209,40 +209,41 @@ class _AppShellState extends State<AppShell> {
         ),
       );
 
-  Widget _history(BuildContext context) =>
-      FutureBuilder<List<Map<String, dynamic>>>(
-        future: widget.historyStore.entries(),
-        builder: (context, snapshot) {
-          final items = snapshot.data ?? [];
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
-            children: [
-              Text(
-                '履歴',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+  Widget _history(
+    BuildContext context,
+  ) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: widget.historyStore.entries(),
+    builder: (context, snapshot) {
+      final items = snapshot.data ?? [];
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+        children: [
+          Text(
+            '履歴',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const Text('最近、雑に決めた場所', style: TextStyle(color: Color(0xFF756F67))),
+          const SizedBox(height: 24),
+          if (items.isEmpty)
+            const Text('まだ履歴はありません。まずはホームから。')
+          else
+            ...items.map(
+              (item) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.place_outlined),
+                title: Text((item['name'] ?? item['id']) as String),
+                subtitle: Text(
+                  '${item['category'] ?? '候補'}  ·  ${_formatDate(item['date'] as String?)}',
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                '最近、雑に決めた場所',
-                style: TextStyle(color: Color(0xFF756F67)),
-              ),
-              const SizedBox(height: 24),
-              if (items.isEmpty)
-                const Text('まだ履歴はありません。まずはホームから。')
-              else
-                ...items.map(
-                  (item) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.place_outlined),
-                    title: Text(item['id'] as String),
-                  ),
-                ),
-            ],
-          );
-        },
+            ),
+        ],
       );
+    },
+  );
 
   Widget _settings(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
@@ -274,6 +275,13 @@ class _AppShellState extends State<AppShell> {
       ),
     ],
   );
+
+  String _formatDate(String? value) {
+    if (value == null) return '日時不明';
+    final date = DateTime.tryParse(value);
+    if (date == null) return '日時不明';
+    return '${date.month}/${date.day}';
+  }
 }
 
 class _ErrorBox extends StatelessWidget {
