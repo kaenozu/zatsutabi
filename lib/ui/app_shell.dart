@@ -23,7 +23,7 @@ class _AppShellState extends State<AppShell> {
   bool loading = false;
   String? error;
   bool _locationPermanentlyDenied = false;
-  late Future<List<Map<String, dynamic>>> _historyFuture;
+  late Future<List<HistoryEntry>> _historyFuture;
 
   @override
   void initState() {
@@ -122,9 +122,13 @@ class _AppShellState extends State<AppShell> {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () async {
+              await widget.engine.commit(suggestion!);
               final opened = await widget.engine.mapsLauncher.open(suggestion!);
-              if (mounted && !opened) {
-                setState(() => error = '地図アプリを開けませんでした。');
+              if (mounted) {
+                setState(() {
+                  _historyFuture = widget.historyStore.entries();
+                  if (!opened) error = '地図アプリを開けませんでした。';
+                });
               }
             },
             icon: const Icon(Icons.directions_outlined),
@@ -141,6 +145,8 @@ class _AppShellState extends State<AppShell> {
             ),
             child: const Text('別の'),
           ),
+          const SizedBox(height: 20),
+          _changeRangeRow(theme),
           const SizedBox(height: 28),
         ] else ...[
           Text(
@@ -150,9 +156,9 @@ class _AppShellState extends State<AppShell> {
             ),
           ),
           const SizedBox(height: 28),
-          _rangeButton('近場', '1時間以内の気軽なおでかけ', TripRange.nearby),
-          _rangeButton('ちょい遠出', 'いつもより少し遠くへ', TripRange.medium),
-          _rangeButton('遠出', '今日はちゃんと出かける', TripRange.far),
+          _rangeButton('近場', '現在地から約50kmの気軽なおでかけ', TripRange.nearby),
+          _rangeButton('ちょい遠出', '約120km・いつもより少し遠くへ', TripRange.medium),
+          _rangeButton('遠出', '約250km・今日はちゃんと出かける', TripRange.far),
         ],
         if (error != null)
           _ErrorBox(
@@ -192,6 +198,38 @@ class _AppShellState extends State<AppShell> {
           style: TextStyle(fontSize: 11, color: Color(0xFF756F67)),
         ),
       ],
+    );
+  }
+
+  Widget _changeRangeRow(ThemeData theme) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        '条件を変える',
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: const Color(0xFF756F67),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        children: [
+          _rangeChip('近場', TripRange.nearby),
+          _rangeChip('ちょい遠出', TripRange.medium),
+          _rangeChip('遠出', TripRange.far),
+        ],
+      ),
+    ],
+  );
+
+  Widget _rangeChip(String title, TripRange value) {
+    final selected = range == value;
+    return ChoiceChip(
+      label: Text(title),
+      selected: selected,
+      onSelected: selected || loading
+          ? null
+          : (_) => suggest(nextRange: value),
     );
   }
 
@@ -236,7 +274,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _history(
     BuildContext context,
-  ) => FutureBuilder<List<Map<String, dynamic>>>(
+  ) => FutureBuilder<List<HistoryEntry>>(
     future: _historyFuture,
     builder: (context, snapshot) {
       final items = snapshot.data ?? [];
@@ -259,9 +297,9 @@ class _AppShellState extends State<AppShell> {
               (item) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.place_outlined),
-                title: Text((item['name'] ?? item['id']) as String),
+                title: Text(item.name),
                 subtitle: Text(
-                  '${item['category'] ?? '候補'}  ·  ${_formatDate(item['date'] as String?)}',
+                  '${item.category}  ·  ${_formatDate(item.date.toIso8601String())}',
                 ),
               ),
             ),
@@ -282,8 +320,8 @@ class _AppShellState extends State<AppShell> {
       const SizedBox(height: 24),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('屋内の候補を優先'),
-        subtitle: const Text('天気を使わず、屋内施設だけから選びます'),
+        title: const Text('屋内施設のみ'),
+                subtitle: const Text('天気を使わず、屋内施設だけから選びます'),
         value: indoorOnly,
         onChanged: (value) => setState(() => indoorOnly = value),
       ),
@@ -311,6 +349,12 @@ class _AppShellState extends State<AppShell> {
   String _messageFor(Object exception) => switch (exception) {
     LocationUnavailable(permanentlyDenied: true) =>
       '位置情報が許可されていません。設定から許可してください。',
+    LocationUnavailable(serviceDisabled: true) =>
+      '位置情報サービスがオフです。設定からオンにしてください。',
+    LocationUnavailable(denied: true) =>
+      '位置情報の利用が拒否されました。もう一度お試しください。',
+    LocationUnavailable(timeout: true) =>
+      '位置情報の取得に時間がかかりました。もう一度お試しください。',
     LocationUnavailable() => '位置情報を取得できませんでした。設定を確認してもう一度お試しください。',
     NoSuggestion() => '近くに条件に合う候補がありません。距離を広げてお試しください。',
     _ => '候補を取得できませんでした。もう一度お試しください。',

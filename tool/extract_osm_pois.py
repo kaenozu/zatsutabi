@@ -34,14 +34,22 @@ TAG_TO_CATEGORY = {
     "public_bath": "日帰り温泉",
     "swimming_pool": "プール",
 }
+# 0 = outdoor, 1 = indoor, 2 = unknown.
 INDOOR_CATEGORIES = {"museum", "gallery", "aquarium", "arts_centre", "public_bath", "swimming_pool"}
+OUTDOOR_CATEGORIES = {"park", "beach", "viewpoint", "nature_reserve", "castle", "ruins", "archaeological_site", "zoo", "theme_park", "water_park"}
 
 
-def classify(tags: dict[str, str]) -> tuple[str, bool] | None:
+def classify(tags: dict[str, str]) -> tuple[str, int] | None:
     for key in ("tourism", "leisure", "historic", "natural", "amenity"):
         value = tags.get(key)
         if value in TAG_TO_CATEGORY:
-            return TAG_TO_CATEGORY[value], value in INDOOR_CATEGORIES
+            if value in INDOOR_CATEGORIES:
+                indoor = 1
+            elif value in OUTDOOR_CATEGORIES:
+                indoor = 0
+            else:
+                indoor = 2
+            return TAG_TO_CATEGORY[value], indoor
     return None
 
 
@@ -51,7 +59,7 @@ class PoiHandler(osmium.SimpleHandler):
         self.include_ways = include_ways
         self.rows: dict[str, tuple[str, str, float, float, int]] = {}
 
-    def _add(self, element_id: int, tags: dict[str, str], latitude: float, longitude: float, classified: tuple[str, bool] | None = None) -> None:
+    def _add(self, element_id: int, tags: dict[str, str], latitude: float, longitude: float, classified: tuple[str, int] | None = None, kind: str = "node") -> None:
         name = (tags.get("name:ja") or tags.get("name") or "").strip()
         if not name or not math.isfinite(latitude) or not math.isfinite(longitude):
             return
@@ -59,14 +67,16 @@ class PoiHandler(osmium.SimpleHandler):
         if classified is None:
             return
         category, indoor = classified
-        stable_id = f"osm-{element_id}"
+        # node and way share the numeric ID space in OSM; prefix keeps them
+        # from colliding when --include-ways is used.
+        stable_id = f"osm-{kind}-{element_id}"
         self.rows[stable_id] = (name, category, latitude, longitude, int(indoor))
 
     def node(self, node: osmium.osm.Node) -> None:
         tags = dict(node.tags)
         classified = classify(tags)
         if classified is not None:
-            self._add(node.id, tags, node.location.lat, node.location.lon, classified)
+            self._add(node.id, tags, node.location.lat, node.location.lon, classified, kind="node")
 
     def way(self, way: osmium.osm.Way) -> None:
         if not self.include_ways:
@@ -80,7 +90,7 @@ class PoiHandler(osmium.SimpleHandler):
             return
         latitude = sum(point[0] for point in points) / len(points)
         longitude = sum(point[1] for point in points) / len(points)
-        self._add(way.id, dict(way.tags), latitude, longitude)
+        self._add(way.id, dict(way.tags), latitude, longitude, classified, kind="way")
 
 
 def main() -> None:

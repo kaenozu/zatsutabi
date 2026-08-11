@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:zatsutabi/data/history_store.dart';
 import 'package:zatsutabi/data/poi_repository.dart';
@@ -31,7 +34,7 @@ class FakeHistoryStore extends HistoryStore {
   @override
   Future<List<String>> recentIds() async => ids;
   @override
-  Future<void> record(poi) async => ids.insert(0, poi.id);
+  Future<void> record(Poi poi) async => ids.insert(0, poi.id);
 }
 
 class FakeMapsLauncher extends MapsLauncher {}
@@ -43,6 +46,18 @@ class RainyWeatherProvider implements WeatherProvider {
 }
 
 void main() {
+  // The bundled assets/poi_osm.sqlite must be exercised for real in tests;
+  // without an initialized databaseFactory every DB path silently falls back
+  // to the 7-entry list and nationwide regressions go unnoticed.
+  TestWidgetsFlutterBinding.ensureInitialized();
+    setUpAll(() async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      // sqflite_common_ffi resolves getDatabasesPath() to .dart_tool/... which
+      // may not exist yet; ensure it so the DB copy step succeeds in tests.
+      await Directory(await getDatabasesPath()).create(recursive: true);
+    });
+
   test('builds a Google Maps URL without an API key', () {
     final uri = MapsLauncher().destinationUri(PoiRepositoryTestPoi.value);
 
@@ -53,7 +68,7 @@ void main() {
     expect(uri.queryParameters['destination'], '35.7,139.7');
   });
 
-  test('returns one nearby suggestion and records it', () async {
+  test('returns one nearby suggestion without recording it', () async {
     final history = FakeHistoryStore();
     final engine = RecommendationEngine(
       poiRepository: PoiRepository(),
@@ -66,6 +81,9 @@ void main() {
     final result = await engine.suggest(TripRange.nearby);
 
     expect(result.name, isNotEmpty);
+    // Suggesting must not write decision history; only commit() does.
+    expect(history.ids, isEmpty);
+    await engine.commit(result);
     expect(history.ids, contains(result.id));
   });
 
@@ -80,7 +98,7 @@ void main() {
 
     final result = await engine.suggest(TripRange.nearby, indoorOnly: true);
 
-    expect(result.indoor, isTrue);
+    expect(result.isIndoor, isTrue);
   });
 
   test('loads bundled nationwide POIs outside Tokyo', () async {
@@ -110,15 +128,15 @@ void main() {
       category: '博物館',
       latitude: 35.7,
       longitude: 139.7,
-      indoor: true,
+      indoor: IndoorStatus.indoor,
     );
 
     await store.record(poi);
     final entries = await store.entries();
 
     expect(entries, hasLength(1));
-    expect(entries.single['name'], '履歴テスト');
-    expect(entries.single['category'], '博物館');
+    expect(entries.single.name, '履歴テスト');
+    expect(entries.single.category, '博物館');
   });
 
   test('ignores malformed history records', () async {
@@ -140,7 +158,7 @@ void main() {
       category: 'test',
       latitude: 35.0,
       longitude: 139.0,
-      indoor: false,
+      indoor: IndoorStatus.outdoor,
     );
     const second = Poi(
       id: 'second',
@@ -148,7 +166,7 @@ void main() {
       category: 'test',
       latitude: 35.1,
       longitude: 139.1,
-      indoor: false,
+      indoor: IndoorStatus.outdoor,
     );
 
     await Future.wait([store.record(first), store.record(second)]);
@@ -167,7 +185,7 @@ void main() {
 
     final result = await engine.suggest(TripRange.nearby);
 
-    expect(result.indoor, isTrue);
+    expect(result.isIndoor, isTrue);
   });
 }
 
@@ -178,6 +196,6 @@ class PoiRepositoryTestPoi {
     category: 'Test',
     latitude: 35.7,
     longitude: 139.7,
-    indoor: false,
+    indoor: IndoorStatus.outdoor,
   );
 }
