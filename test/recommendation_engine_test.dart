@@ -75,6 +75,24 @@ void main() {
 
     expect(result.indoor, isTrue);
   });
+
+  test('loads bundled nationwide POIs outside Tokyo', () async {
+    final repository = PoiRepository();
+
+    final osaka = await repository.nearby(
+      latitude: 34.6545,
+      longitude: 135.4289,
+      radiusKm: 50,
+    );
+    final sapporo = await repository.nearby(
+      latitude: 43.0608,
+      longitude: 141.3478,
+      radiusKm: 50,
+    );
+
+    expect(osaka, isNotEmpty);
+    expect(sapporo, isNotEmpty);
+  });
 }
 
 class PoiRepositoryTestPoi {

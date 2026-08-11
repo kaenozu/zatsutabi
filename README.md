@@ -7,7 +7,7 @@
 - バックエンド、LLM、Google Places、Maps Platform API、ルーティングAPIなし
 - 位置情報と端末内推薦で候補を1件に絞る
 - Google MapsはAPIではなくMaps URLで外部起動
-- POIはOSM由来の正規化SQLiteをアプリに同梱。現状の7件はパイプライン確認用サンプル
+- POIはOSM由来の正規化SQLiteをアプリに同梱。現在の同梱DBは全国21,862件（生成時点）
 - 天気は`WeatherProvider`抽象と`NoWeatherProvider`で分離
 
 ## 全国POI生成
