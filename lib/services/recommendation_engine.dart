@@ -43,6 +43,16 @@ class RecommendationEngine {
       radiusKm: radius,
       indoorOnly: indoorOnly,
     );
+    if (!indoorOnly) {
+      final outdoorFriendly = await weatherProvider.isOutdoorFriendly(
+        current.latitude,
+        current.longitude,
+      );
+      if (outdoorFriendly == false) {
+        final indoorCandidates = candidates.where((poi) => poi.indoor).toList();
+        if (indoorCandidates.isNotEmpty) candidates = indoorCandidates;
+      }
+    }
     final unseen = candidates
         .where((poi) => !excluded.contains(poi.id))
         .toList();

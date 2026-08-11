@@ -68,9 +68,18 @@ class PoiRepository {
   ];
 
   Database? _database;
+  Future<Database?>? _openingDatabase;
 
   Future<Database?> _openDatabase() async {
     if (_database != null) return _database;
+    if (_openingDatabase != null) return _openingDatabase;
+    _openingDatabase = _openDatabaseOnce();
+    final database = await _openingDatabase;
+    _openingDatabase = null;
+    return database;
+  }
+
+  Future<Database?> _openDatabaseOnce() async {
     try {
       final databasesPath = await getDatabasesPath();
       final databasePath = path.join(databasesPath, 'poi_osm.sqlite');
@@ -107,6 +116,7 @@ class PoiRepository {
               longitude - longitudeDelta,
               longitude + longitudeDelta,
             ],
+            limit: 5000,
           );
     final source = rows.isEmpty
         ? _fallback

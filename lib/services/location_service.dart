@@ -9,14 +9,18 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied) {
       throw const LocationUnavailable();
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw const LocationUnavailable(permanentlyDenied: true);
     }
     return Geolocator.getCurrentPosition();
   }
 }
 
 class LocationUnavailable implements Exception {
-  const LocationUnavailable();
+  const LocationUnavailable({this.permanentlyDenied = false});
+
+  final bool permanentlyDenied;
 }

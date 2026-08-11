@@ -36,6 +36,12 @@ class FakeHistoryStore extends HistoryStore {
 
 class FakeMapsLauncher extends MapsLauncher {}
 
+class RainyWeatherProvider implements WeatherProvider {
+  @override
+  Future<bool?> isOutdoorFriendly(double latitude, double longitude) async =>
+      false;
+}
+
 void main() {
   test('builds a Google Maps URL without an API key', () {
     final uri = MapsLauncher().destinationUri(PoiRepositoryTestPoi.value);
@@ -113,6 +119,55 @@ void main() {
     expect(entries, hasLength(1));
     expect(entries.single['name'], '履歴テスト');
     expect(entries.single['category'], '博物館');
+  });
+
+  test('ignores malformed history records', () async {
+    SharedPreferences.setMockInitialValues({
+      'suggestion_history_v2': ['not-json', '{"name":"missing id"}'],
+    });
+    final store = HistoryStore();
+
+    expect(await store.recentIds(), isEmpty);
+    expect(await store.entries(), isEmpty);
+  });
+
+  test('serializes concurrent history writes', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = HistoryStore();
+    const first = Poi(
+      id: 'first',
+      name: 'First',
+      category: 'test',
+      latitude: 35.0,
+      longitude: 139.0,
+      indoor: false,
+    );
+    const second = Poi(
+      id: 'second',
+      name: 'Second',
+      category: 'test',
+      latitude: 35.1,
+      longitude: 139.1,
+      indoor: false,
+    );
+
+    await Future.wait([store.record(first), store.record(second)]);
+
+    expect(await store.recentIds(), containsAll(<String>['first', 'second']));
+  });
+
+  test('prefers indoor suggestions when weather is unsuitable', () async {
+    final engine = RecommendationEngine(
+      poiRepository: PoiRepository(),
+      historyStore: FakeHistoryStore(),
+      locationService: FakeLocationService(),
+      weatherProvider: RainyWeatherProvider(),
+      mapsLauncher: FakeMapsLauncher(),
+    );
+
+    final result = await engine.suggest(TripRange.nearby);
+
+    expect(result.indoor, isTrue);
   });
 }
 

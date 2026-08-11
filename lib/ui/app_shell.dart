@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../data/history_store.dart';
 import '../models/poi.dart';
+import '../services/location_service.dart';
 import '../services/recommendation_engine.dart';
 
 class AppShell extends StatefulWidget {
@@ -20,11 +22,20 @@ class _AppShellState extends State<AppShell> {
   bool indoorOnly = false;
   bool loading = false;
   String? error;
+  bool _locationPermanentlyDenied = false;
+  late Future<List<Map<String, dynamic>>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyFuture = widget.historyStore.entries();
+  }
 
   Future<void> suggest({TripRange? nextRange, bool? nextIndoor}) async {
     setState(() {
       loading = true;
       error = null;
+      _locationPermanentlyDenied = false;
       range = nextRange ?? range;
       indoorOnly = nextIndoor ?? indoorOnly;
     });
@@ -34,12 +45,15 @@ class _AppShellState extends State<AppShell> {
         setState(() {
           suggestion = result;
           loading = false;
+          _historyFuture = widget.historyStore.entries();
         });
       }
-    } catch (_) {
+    } catch (exception) {
       if (mounted) {
         setState(() {
-          error = '位置情報を取得できませんでした。設定を確認してもう一度お試しください。';
+          error = _messageFor(exception);
+          _locationPermanentlyDenied =
+              exception is LocationUnavailable && exception.permanentlyDenied;
           loading = false;
         });
       }
@@ -107,7 +121,12 @@ class _AppShellState extends State<AppShell> {
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: () => widget.engine.mapsLauncher.open(suggestion!),
+            onPressed: () async {
+              final opened = await widget.engine.mapsLauncher.open(suggestion!);
+              if (mounted && !opened) {
+                setState(() => error = '地図アプリを開けませんでした。');
+              }
+            },
             icon: const Icon(Icons.directions_outlined),
             label: const Text('ここにする'),
             style: FilledButton.styleFrom(
@@ -135,7 +154,13 @@ class _AppShellState extends State<AppShell> {
           _rangeButton('ちょい遠出', 'いつもより少し遠くへ', TripRange.medium),
           _rangeButton('遠出', '今日はちゃんと出かける', TripRange.far),
         ],
-        if (error != null) _ErrorBox(message: error!),
+        if (error != null)
+          _ErrorBox(
+            message: error!,
+            onAction: _locationPermanentlyDenied
+                ? Geolocator.openAppSettings
+                : null,
+          ),
         if (loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 28),
@@ -212,7 +237,7 @@ class _AppShellState extends State<AppShell> {
   Widget _history(
     BuildContext context,
   ) => FutureBuilder<List<Map<String, dynamic>>>(
-    future: widget.historyStore.entries(),
+    future: _historyFuture,
     builder: (context, snapshot) {
       final items = snapshot.data ?? [];
       return ListView(
@@ -282,11 +307,20 @@ class _AppShellState extends State<AppShell> {
     if (date == null) return '日時不明';
     return '${date.month}/${date.day}';
   }
+
+  String _messageFor(Object exception) => switch (exception) {
+    LocationUnavailable(permanentlyDenied: true) =>
+      '位置情報が許可されていません。設定から許可してください。',
+    LocationUnavailable() => '位置情報を取得できませんでした。設定を確認してもう一度お試しください。',
+    NoSuggestion() => '近くに条件に合う候補がありません。距離を広げてお試しください。',
+    _ => '候補を取得できませんでした。もう一度お試しください。',
+  };
 }
 
 class _ErrorBox extends StatelessWidget {
-  const _ErrorBox({required this.message});
+  const _ErrorBox({required this.message, this.onAction});
   final String message;
+  final Future<bool> Function()? onAction;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
@@ -294,6 +328,18 @@ class _ErrorBox extends StatelessWidget {
       color: const Color(0xFFFFE9E2),
       borderRadius: BorderRadius.circular(16),
     ),
-    child: Text(message, style: const TextStyle(color: Color(0xFF8C3020))),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(message, style: const TextStyle(color: Color(0xFF8C3020))),
+        if (onAction != null) ...[
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () async => await onAction!(),
+            child: const Text('設定を開く'),
+          ),
+        ],
+      ],
+    ),
   );
 }
