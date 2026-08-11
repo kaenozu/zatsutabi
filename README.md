@@ -12,13 +12,21 @@
 
 ## 全国POI生成
 
-Geofabrik Japan PBFを開発環境で取得し、OSMタグから目的地候補だけを正規化したJSONにしてから、`python tool/generate_poi_db.py`でSQLiteを生成します。アプリにPBFは同梱しません。
+Geofabrik Japan PBFを開発環境で取得し、`osmium`でOSMタグから目的地候補だけを抽出してSQLiteを生成します。アプリにPBFは同梱しません。
 
 ```text
-Japan-latest.osm.pbf → 抽出/正規化 → tool/sample_pois.json相当 → assets/poi_osm.sqlite
+Japan-latest.osm.pbf → tool/extract_osm_pois.py → assets/poi_osm.sqlite
 ```
 
-`flutter pub get`後に`python tool/generate_poi_db.py`を実行すると、件数とDBサイズが表示されます。
+実データ生成は次の手順です。
+
+```powershell
+python -m pip install osmium
+curl.exe -L -o tool/japan-latest.osm.pbf https://download.geofabrik.de/asia/japan-latest.osm.pbf
+python tool/extract_osm_pois.py tool/japan-latest.osm.pbf assets/poi_osm.sqlite
+```
+
+コマンドは入力PBFサイズ、抽出件数、生成SQLiteサイズを表示します。`tool/generate_poi_db.py`は小さなサンプル入力でパイプラインを確認する用途です。
 
 ## attribution
 

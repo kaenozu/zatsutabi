@@ -150,10 +150,13 @@ class _AppShellState extends State<AppShell> {
               color: theme.colorScheme.primary,
             ),
             const SizedBox(width: 6),
-            Text(
-              '現在地を使って候補を選びます',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF756F67),
+            Expanded(
+              child: Text(
+                '現在地を使って候補を選びます',
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF756F67),
+                ),
               ),
             ),
           ],
