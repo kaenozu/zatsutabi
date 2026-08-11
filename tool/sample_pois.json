@@ -1,0 +1,9 @@
+[
+  {"id":"tokyo-park","name":"井の頭恩賜公園","category":"自然・散歩","latitude":35.7008,"longitude":139.5703,"indoor":false},
+  {"id":"tokyo-museum","name":"国立科学博物館","category":"博物館","latitude":35.7207,"longitude":139.7765,"indoor":true},
+  {"id":"saitama-nagatoro","name":"長瀞岩畳","category":"景勝地","latitude":36.0946,"longitude":139.1104,"indoor":false},
+  {"id":"osaka-aquarium","name":"海遊館","category":"水族館","latitude":34.6545,"longitude":135.4289,"indoor":true},
+  {"id":"kyoto-arashiyama","name":"嵐山竹林","category":"自然・散歩","latitude":35.017,"longitude":135.6713,"indoor":false},
+  {"id":"fukuoka-museum","name":"福岡市博物館","category":"博物館","latitude":33.5938,"longitude":130.3515,"indoor":true},
+  {"id":"sapporo-park","name":"大通公園","category":"自然・散歩","latitude":43.0608,"longitude":141.3478,"indoor":false}
+]

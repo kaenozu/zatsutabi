@@ -1,0 +1,22 @@
+import 'package:geolocator/geolocator.dart';
+
+class LocationService {
+  Future<Position> currentPosition() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw const LocationUnavailable();
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw const LocationUnavailable();
+    }
+    return Geolocator.getCurrentPosition();
+  }
+}
+
+class LocationUnavailable implements Exception {
+  const LocationUnavailable();
+}
