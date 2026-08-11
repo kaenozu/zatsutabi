@@ -28,6 +28,8 @@ python tool/extract_osm_pois.py tool/japan-latest.osm.pbf assets/poi_osm.sqlite
 
 コマンドは入力PBFサイズ、抽出件数、生成SQLiteサイズを表示します。`tool/generate_poi_db.py`は小さなサンプル入力でパイプラインを確認する用途です。
 
+既定では高速な名称付きPOIノードを抽出します。公園や施設ポリゴンなどのWayも含める場合は`--include-ways`を付けますが、全国PBFでは処理時間とメモリが増えるため、MVPの初期生成ではノード抽出を推奨します。
+
 ## attribution
 
 画面内に `© OpenStreetMap contributors` を表示しています。実データ更新時はOSMのライセンスとデータ利用条件も再確認してください。

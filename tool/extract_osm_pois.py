@@ -46,15 +46,16 @@ def classify(tags: dict[str, str]) -> tuple[str, bool] | None:
 
 
 class PoiHandler(osmium.SimpleHandler):
-    def __init__(self) -> None:
+    def __init__(self, include_ways: bool = False) -> None:
         super().__init__()
+        self.include_ways = include_ways
         self.rows: dict[str, tuple[str, str, float, float, int]] = {}
 
-    def _add(self, element_id: int, tags: dict[str, str], latitude: float, longitude: float) -> None:
+    def _add(self, element_id: int, tags: dict[str, str], latitude: float, longitude: float, classified: tuple[str, bool] | None = None) -> None:
         name = (tags.get("name:ja") or tags.get("name") or "").strip()
         if not name or not math.isfinite(latitude) or not math.isfinite(longitude):
             return
-        classified = classify(tags)
+        classified = classified or classify(tags)
         if classified is None:
             return
         category, indoor = classified
@@ -62,10 +63,17 @@ class PoiHandler(osmium.SimpleHandler):
         self.rows[stable_id] = (name, category, latitude, longitude, int(indoor))
 
     def node(self, node: osmium.osm.Node) -> None:
-        self._add(node.id, dict(node.tags), node.location.lat, node.location.lon)
+        tags = dict(node.tags)
+        classified = classify(tags)
+        if classified is not None:
+            self._add(node.id, tags, node.location.lat, node.location.lon, classified)
 
     def way(self, way: osmium.osm.Way) -> None:
-        if not way.nodes:
+        if not self.include_ways:
+            return
+        tags = dict(way.tags)
+        classified = classify(tags)
+        if classified is None or not (tags.get("name:ja") or tags.get("name")) or not way.nodes:
             return
         points = [(node.lat, node.lon) for node in way.nodes if node.location.valid()]
         if not points:
@@ -79,11 +87,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("pbf", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--include-ways", action="store_true", help="also extract named POI ways; slower and optional")
     args = parser.parse_args()
     if not args.pbf.exists():
         raise SystemExit(f"PBF not found: {args.pbf}")
-    handler = PoiHandler()
-    handler.apply_file(str(args.pbf), locations=True)
+    handler = PoiHandler(include_ways=args.include_ways)
+    handler.apply_file(str(args.pbf), locations=args.include_ways)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.output.exists():
         args.output.unlink()
