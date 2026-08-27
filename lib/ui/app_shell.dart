@@ -5,6 +5,7 @@ import '../data/history_store.dart';
 import '../models/poi.dart';
 import '../services/location_service.dart';
 import '../services/recommendation_engine.dart';
+import 'monetization_banner.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.engine, required this.historyStore});
@@ -193,6 +194,8 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
         const SizedBox(height: 18),
+        const Center(child: MonetizationBanner()),
+        const SizedBox(height: 12),
         const Text(
           'データ提供: OpenStreetMap contributors',
           style: TextStyle(fontSize: 11, color: Color(0xFF756F67)),
