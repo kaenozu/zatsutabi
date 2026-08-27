@@ -30,6 +30,12 @@ class RecommendationEngine {
   /// history.
   final Set<String> _sessionSeen = <String>{};
 
+  double minimumRadiusKmFor(TripRange range) => switch (range) {
+    TripRange.nearby => 0.0,
+    TripRange.medium => 50.0,
+    TripRange.far => 120.0,
+  };
+
   double radiusKmFor(TripRange range) => switch (range) {
     TripRange.nearby => 50.0,
     TripRange.medium => 120.0,
@@ -50,6 +56,7 @@ class RecommendationEngine {
       latitude: current.latitude,
       longitude: current.longitude,
       radiusKm: radius,
+      minimumRadiusKm: minimumRadiusKmFor(range),
       indoorOnly: indoorOnly,
     );
     if (!indoorOnly) {

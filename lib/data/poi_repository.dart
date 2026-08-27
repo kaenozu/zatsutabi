@@ -87,14 +87,14 @@ class PoiRepository {
     // swallowed, so regressions are detectable.
     try {
       final databasesPath = await getDatabasesPath();
-      final assetBytes =
-          (await rootBundle.load('assets/poi_osm.sqlite')).buffer.asUint8List();
+      final assetBytes = (await rootBundle.load(
+        'assets/poi_osm.sqlite',
+      )).buffer.asUint8List();
       // Content-hash based filename: app updates ship a new DB asset, which
       // yields a new hash and therefore a new file, so installed users pick
       // up the updated POI database without any version bookkeeping.
       final digest = sha256.convert(assetBytes).toString();
-      final databasePath =
-          path.join(databasesPath, 'poi_osm_$digest.sqlite');
+      final databasePath = path.join(databasesPath, 'poi_osm_$digest.sqlite');
       if (!await File(databasePath).exists()) {
         // Copy to a temp file first, then atomically rename. A crash or
         // low-storage failure mid-copy leaves only the temp file, so the next
@@ -120,6 +120,7 @@ class PoiRepository {
     required double latitude,
     required double longitude,
     required double radiusKm,
+    double minimumRadiusKm = 0,
     bool indoorOnly = false,
   }) async {
     final database = await _openDatabase();
@@ -137,15 +138,15 @@ class PoiRepository {
               longitude + longitudeDelta,
             ],
           );
-    final source = rows.isEmpty
-        ? _fallback
-        : rows.map(Poi.fromRow).toList();
+    final source = rows.isEmpty ? _fallback : rows.map(Poi.fromRow).toList();
     return source
         .where((poi) => !indoorOnly || poi.isIndoor)
         .where(
           (poi) =>
+              _distanceKm(latitude, longitude, poi.latitude, poi.longitude) >=
+                  minimumRadiusKm &&
               _distanceKm(latitude, longitude, poi.latitude, poi.longitude) <=
-              radiusKm,
+                  radiusKm,
         )
         .toList();
   }
