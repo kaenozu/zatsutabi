@@ -22,7 +22,8 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug
-      - run: python -m py_compile tool/extract_osm_pois.py tool/generate_poi_db.py tool/validate_poi_db.py
+      - run: python -m py_compile tool/atomic_sqlite.py tool/extract_osm_pois.py tool/generate_poi_db.py tool/validate_poi_db.py tool/test_atomic_poi_db.py
+      - run: python -m unittest tool/test_atomic_poi_db.py
       - name: Validate bundled POI database
         run: |
           python tool/validate_poi_db.py assets/poi_osm.sqlite --min-rows 10000
