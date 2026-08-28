@@ -14,7 +14,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-from atomic_sqlite import build_sqlite_atomically
+try:
+    from .atomic_sqlite import build_sqlite_atomically
+except ImportError:  # Direct script execution: python tool/generate_poi_db.py
+    from atomic_sqlite import build_sqlite_atomically
 
 ROOT = Path(__file__).parents[1]
 DEFAULT_INPUT = ROOT / "tool" / "sample_pois.json"
