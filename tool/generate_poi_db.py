@@ -14,6 +14,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from atomic_sqlite import build_sqlite_atomically
+
 ROOT = Path(__file__).parents[1]
 DEFAULT_INPUT = ROOT / "tool" / "sample_pois.json"
 DEFAULT_OUTPUT = ROOT / "build" / "poi_db" / "poi_osm.sqlite"
@@ -23,11 +25,8 @@ PRODUCTION_OUTPUT = ROOT / "assets" / "poi_osm.sqlite"
 def build_database(input_path: Path, output_path: Path) -> int:
     """Create a compact poi table from the normalized JSON. Returns row count."""
     rows = json.loads(input_path.read_text(encoding="utf-8"))
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_path.exists():
-        output_path.unlink()
-    connection = sqlite3.connect(output_path)
-    try:
+
+    def write(connection: sqlite3.Connection) -> int:
         connection.execute(
             "CREATE TABLE poi (id TEXT PRIMARY KEY, name TEXT NOT NULL, "
             "category TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, "
@@ -37,22 +36,25 @@ def build_database(input_path: Path, output_path: Path) -> int:
             "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?)",
             [
                 (
-                    r["id"],
-                    r["name"],
-                    r["category"],
-                    r["latitude"],
-                    r["longitude"],
-                    int(r["indoor"]),
+                    row["id"],
+                    row["name"],
+                    row["category"],
+                    row["latitude"],
+                    row["longitude"],
+                    int(row["indoor"]),
                 )
-                for r in rows
+                for row in rows
             ],
         )
         connection.execute("CREATE INDEX idx_poi_lat_lon ON poi(latitude, longitude)")
-        connection.commit()
-    finally:
-        connection.close()
-    print(f"rows={len(rows)} bytes={output_path.stat().st_size} path={output_path}")
-    return len(rows)
+        count = connection.execute("SELECT COUNT(*) FROM poi").fetchone()[0]
+        if count != len(rows):
+            raise RuntimeError(f"row-count mismatch: expected={len(rows)} actual={count}")
+        return count
+
+    count = build_sqlite_atomically(output_path, write)
+    print(f"rows={count} bytes={output_path.stat().st_size} path={output_path}")
+    return count
 
 
 def main() -> None:
