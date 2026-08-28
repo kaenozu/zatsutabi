@@ -9,10 +9,10 @@ import 'package:zatsutabi/services/maps_launcher.dart';
 import 'package:zatsutabi/services/recommendation_engine.dart';
 import 'package:zatsutabi/services/weather_provider.dart';
 
-const _position = Position(
+final _position = Position(
   longitude: 139.7,
   latitude: 35.7,
-  timestamp: null,
+  timestamp: DateTime(2026, 1, 1),
   accuracy: 1,
   altitude: 0,
   altitudeAccuracy: 1,
