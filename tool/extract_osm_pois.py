@@ -15,6 +15,11 @@ from pathlib import Path
 
 import osmium
 
+try:
+    from .atomic_sqlite import build_sqlite_atomically
+except ImportError:  # Direct script execution: python tool/extract_osm_pois.py
+    from atomic_sqlite import build_sqlite_atomically
+
 TAG_TO_CATEGORY = {
     "museum": "博物館",
     "gallery": "美術館・ギャラリー",
@@ -93,6 +98,28 @@ class PoiHandler(osmium.SimpleHandler):
         self._add(way.id, dict(way.tags), latitude, longitude, classified, kind="way")
 
 
+def _write_database(
+    rows: dict[str, tuple[str, str, float, float, int]],
+    output: Path,
+) -> int:
+    def write(connection: sqlite3.Connection) -> int:
+        connection.execute(
+            "CREATE TABLE poi (id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL, "
+            "latitude REAL NOT NULL, longitude REAL NOT NULL, indoor INTEGER NOT NULL)"
+        )
+        connection.executemany(
+            "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?)",
+            [(key, *row) for key, row in rows.items()],
+        )
+        connection.execute("CREATE INDEX idx_poi_lat_lon ON poi(latitude, longitude)")
+        count = connection.execute("SELECT COUNT(*) FROM poi").fetchone()[0]
+        if count != len(rows):
+            raise RuntimeError(f"row-count mismatch: expected={len(rows)} actual={count}")
+        return count
+
+    return build_sqlite_atomically(output, write)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("pbf", type=Path)
@@ -103,16 +130,7 @@ def main() -> None:
         raise SystemExit(f"PBF not found: {args.pbf}")
     handler = PoiHandler(include_ways=args.include_ways)
     handler.apply_file(str(args.pbf), locations=args.include_ways)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    if args.output.exists():
-        args.output.unlink()
-    connection = sqlite3.connect(args.output)
-    connection.execute("CREATE TABLE poi (id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, indoor INTEGER NOT NULL)")
-    connection.executemany("INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?)", [(key, *row) for key, row in handler.rows.items()])
-    connection.execute("CREATE INDEX idx_poi_lat_lon ON poi(latitude, longitude)")
-    connection.commit()
-    count = connection.execute("SELECT COUNT(*) FROM poi").fetchone()[0]
-    connection.close()
+    count = _write_database(handler.rows, args.output)
     print(f"source_bytes={args.pbf.stat().st_size} rows={count} db_bytes={args.output.stat().st_size} output={args.output}")
 
 
