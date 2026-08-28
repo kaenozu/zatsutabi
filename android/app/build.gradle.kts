@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -15,6 +17,35 @@ val releaseSigningConfigured = listOf(
     releaseKeyPassword,
 ).all { it.isPresent }
 
+val dartDefines: Map<String, String> =
+    (project.findProperty("dart-defines") as String?)
+        ?.split(',')
+        ?.mapNotNull { encoded ->
+            runCatching {
+                val decoded = String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+                val separator = decoded.indexOf('=')
+                if (separator <= 0) null
+                else decoded.substring(0, separator) to decoded.substring(separator + 1)
+            }.getOrNull()
+        }
+        ?.toMap()
+        ?: emptyMap()
+
+val googleTestAndroidAppId = "ca-app-pub-3940256099942544~3347511713"
+val googleTestAndroidBannerId = "ca-app-pub-3940256099942544/6300978111"
+val productionAds = dartDefines["ZATSUTABI_PRODUCTION_ADS"]?.toBooleanStrictOrNull() ?: false
+val admobAppId = dartDefines["ADMOB_ANDROID_APP_ID"] ?: googleTestAndroidAppId
+val admobBannerId = dartDefines["ADMOB_ANDROID_BANNER_ID"] ?: googleTestAndroidBannerId
+
+if (productionAds) {
+    check(admobAppId.isNotBlank() && admobAppId != googleTestAndroidAppId) {
+        "Production ads require a non-test ADMOB_ANDROID_APP_ID supplied via --dart-define."
+    }
+    check(admobBannerId.isNotBlank() && admobBannerId != googleTestAndroidBannerId) {
+        "Production ads require a non-test ADMOB_ANDROID_BANNER_ID supplied via --dart-define."
+    }
+}
+
 android {
     namespace = "jp.zatsutabi.zatsutabi"
     compileSdk = flutter.compileSdkVersion
@@ -28,8 +59,8 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "jp.zatsutabi.zatsutabi"
-        manifestPlaceholders["admobAppId"] =
-            project.findProperty("admobAppId") ?: "ca-app-pub-3940256099942544~3347511713"
+        // The manifest and Dart runtime read the same --dart-define value.
+        manifestPlaceholders["admobAppId"] = admobAppId
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -59,6 +90,11 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
         check(releaseSigningConfigured) {
             "Release signing is not configured. Set RELEASE_STORE_FILE, " +
                 "RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD."
+        }
+        if (productionAds) {
+            check(admobAppId != googleTestAndroidAppId && admobBannerId != googleTestAndroidBannerId) {
+                "Production ad builds must not use Google's test AdMob IDs."
+            }
         }
     }
 }
