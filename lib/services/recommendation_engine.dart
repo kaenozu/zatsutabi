@@ -71,11 +71,10 @@ class RecommendationEngine {
         if (indoorCandidates.isNotEmpty) candidates = indoorCandidates;
       }
     }
-    final unseen = candidates
+    candidates = candidates
         .where((poi) => !decided.contains(poi.id))
         .where((poi) => !_sessionSeen.contains(poi.id))
         .toList();
-    if (unseen.isNotEmpty) candidates = unseen;
     if (candidates.isEmpty) throw const NoSuggestion();
     candidates.shuffle(Random(DateTime.now().millisecondsSinceEpoch));
     final selected = candidates.first;
