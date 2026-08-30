@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../services/ad_consent.dart';
 import '../services/monetization_config.dart';
 
 /// A non-blocking banner: while loading or after failure it occupies no space.
@@ -21,17 +22,31 @@ class _MonetizationBannerState extends State<MonetizationBanner> {
   @override
   void initState() {
     super.initState();
-    if (widget.loadAd) _load();
+    AdConsent.canRequestAds.addListener(_handleConsentChanged);
+    if (widget.loadAd && AdConsent.canRequestAds.value) _load();
+  }
+
+  void _handleConsentChanged() {
+    if (!mounted || !widget.loadAd) return;
+    if (!AdConsent.canRequestAds.value) {
+      final ad = _ad;
+      _ad = null;
+      ad?.dispose();
+      if (_loaded) setState(() => _loaded = false);
+      return;
+    }
+    if (_ad == null && !_loaded) _load();
   }
 
   void _load() {
+    if (!AdConsent.canRequestAds.value || _ad != null) return;
     final ad = BannerAd(
       adUnitId: MonetizationConfig.bannerId,
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
-          if (!mounted) {
+          if (!mounted || !AdConsent.canRequestAds.value) {
             ad.dispose();
             return;
           }
@@ -51,6 +66,7 @@ class _MonetizationBannerState extends State<MonetizationBanner> {
 
   @override
   void dispose() {
+    AdConsent.canRequestAds.removeListener(_handleConsentChanged);
     _ad?.dispose();
     super.dispose();
   }
